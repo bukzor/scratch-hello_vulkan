@@ -1,5 +1,4 @@
-// hello_vulkan2.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+// working from https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Base_code
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -10,30 +9,77 @@
 #include <glm/mat4x4.hpp>
 
 #include <iostream>
+#include <vector>
 
 
 class HelloTriangleApplication {
 public:
     void run() {
-        initVulkan();
+        init();
         mainLoop();
         cleanup();
     }
 
 private:
     GLFWwindow* window;
+    VkInstance vulkan;
 
-    void initVulkan() {
 
+    void init() {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
 
         uint32_t extensionCount = 0;
+        #pragma warning( suppress : 26812 )  // https://docs.microsoft.com/en-us/cpp/preprocessor/warning
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
         std::cout << extensionCount << " extensions supported\n";
+
+        createVulkan();
+        showVulkanExtensions();
+    }
+    void createVulkan() {
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = "No Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_0;
+
+        VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+
+        uint32_t glfwExtensionCount = 0;
+        const char** glfwExtensions;
+
+        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+        createInfo.enabledExtensionCount = glfwExtensionCount;
+        createInfo.ppEnabledExtensionNames = glfwExtensions;
+
+        createInfo.enabledLayerCount = 0;
+
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkan);
+
+        if (vkCreateInstance(&createInfo, nullptr, &vulkan) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create instance!");
+        }
+    }
+    void showVulkanExtensions() {
+        uint32_t extensionCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        std::vector<VkExtensionProperties> extensions(extensionCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+        std::cout << "available extensions:\n";
+
+        for (const auto& extension : extensions) {
+            std::cout << '\t' << extension.extensionName << " v" << extension.specVersion << '\n';
+        }
     }
     void mainLoop() {
         glm::mat4 matrix;
@@ -46,6 +92,7 @@ private:
     }
 
     void cleanup() {
+        vkDestroyInstance(vulkan, nullptr);
         glfwDestroyWindow(window);
         glfwTerminate();
     }
