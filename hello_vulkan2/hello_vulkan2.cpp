@@ -35,7 +35,6 @@ private:
 
         std::cout << extensionCount << " extensions supported\n";
     }
-
     void mainLoop() {
         glm::mat4 matrix;
         glm::vec4 vec;
