@@ -8,9 +8,18 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
+#include <string>
+#include <iomanip>
 #include <iostream>
 #include <vector>
 
+using namespace std::string_literals;
+
+const std::vector<const char*> validationLayers = {
+#ifndef NDEBUG
+    "VK_LAYER_KHRONOS_validation",
+#endif
+};
 
 class HelloTriangleApplication {
 public:
@@ -32,16 +41,14 @@ private:
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
 
-        uint32_t extensionCount = 0;
-        #pragma warning( suppress : 26812 )  // https://docs.microsoft.com/en-us/cpp/preprocessor/warning
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-        std::cout << extensionCount << " extensions supported\n";
-
         createVulkan();
         showVulkanExtensions();
     }
     void createVulkan() {
+        if (!validateVulkanLayers(validationLayers)) {
+            throw std::runtime_error("validation layers requested, but not available!");
+        }
+
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Hello Triangle";
@@ -62,20 +69,55 @@ private:
         createInfo.enabledExtensionCount = glfwExtensionCount;
         createInfo.ppEnabledExtensionNames = glfwExtensions;
 
-        createInfo.enabledLayerCount = 0;
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
 
+        #pragma warning( suppress : 26812 )  // https://docs.microsoft.com/en-us/cpp/preprocessor/warning
         VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkan);
 
         if (vkCreateInstance(&createInfo, nullptr, &vulkan) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
         }
     }
+    bool validateVulkanLayers(const std::vector<const char*> validationLayers) {
+        uint32_t layerCount;
+
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+        std::vector<VkLayerProperties> availableLayers(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+        std::cout << layerCount << " Vulkan Layers available:\n";
+        for (const auto& layerProperties : availableLayers) {
+            std::cout << std::left << '\t'
+                << std::setw(40) << layerProperties.layerName << " "
+                << layerProperties.description << '\n'
+                ;
+        }
+
+        for (const char* layerName : validationLayers) {
+            bool layerFound = false;
+
+            for (const auto& layerProperties : availableLayers) {
+                if (strcmp(layerName, layerProperties.layerName) == 0) {
+                    layerFound = true;
+                    break;
+                }
+            }
+
+            if (!layerFound) {
+                return false;
+            }
+        }
+
+        return true;
+    }
     void showVulkanExtensions() {
         uint32_t extensionCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
         std::vector<VkExtensionProperties> extensions(extensionCount);
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-        std::cout << "available extensions:\n";
+        std::cout << extensionCount << " extensions available:\n";
 
         for (const auto& extension : extensions) {
             std::cout << '\t' << extension.extensionName << " v" << extension.specVersion << '\n';
@@ -102,7 +144,6 @@ private:
 
 int main()
 {
-
     HelloTriangleApplication app;
     try {
         app.run();
@@ -115,14 +156,3 @@ int main()
     return EXIT_SUCCESS;
 
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
