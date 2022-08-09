@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,7 +23,7 @@ void showVulkanExtensions() {
 }
 
 bool validateVulkanLayers(const std::vector<const char *> &validationLayers) {
-  uint32_t layerCount;
+  uint32_t layerCount = 0;
 
   vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -53,14 +54,47 @@ bool validateVulkanLayers(const std::vector<const char *> &validationLayers) {
   return true;
 }
 
+struct QueueFamilyIndices {
+  std::optional<uint32_t> graphicsFamily;
+
+  bool isComplete() { return graphicsFamily.has_value(); }
+};
+
+template <class T>
+struct show_type;
+
+QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice &device) {
+  QueueFamilyIndices indices;
+
+  uint32_t queueFamilyCount = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+  std::cout << queueFamilyCount << " Vulkan Queue Families available:\n";
+
+  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                           queueFamilies.data());
+
+  int i = 0;
+  for (const auto &queueFamily : queueFamilies) {
+    std::cout << '\t' << queueFamily.queueCount << "x "
+              << queueFamily.queueFlags << '\n';
+    if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+      indices.graphicsFamily = i;
+    }
+    i++;
+  }
+  return indices;
+}
+
 bool isDeviceSuitable(const VkPhysicalDevice &device) {
   VkPhysicalDeviceProperties deviceProperties;
   VkPhysicalDeviceFeatures deviceFeatures;
   vkGetPhysicalDeviceProperties(device, &deviceProperties);
   vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+  QueueFamilyIndices indices = findQueueFamilies(device);
 
   return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-         deviceFeatures.geometryShader;
+         deviceFeatures.geometryShader && indices.isComplete();
 }
 
 void pickPhysicalDevice(const VkInstance &vulkan) {
